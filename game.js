@@ -13,9 +13,9 @@ const MAX_DEPTH = 20;
 const TEX_SIZE = 64;
 
 // Player movement — tuned to feel like CS
-const WALK_SPEED   = 0.030;   // tiles/ms  ~2.9 tiles/sec
-const RUN_SPEED    = 0.048;   // with shift
-const CROUCH_SPEED = 0.014;
+const WALK_SPEED   = 0.0095;  // tiles/ms — CS-like
+const RUN_SPEED    = 0.0145; // with shift
+const CROUCH_SPEED = 0.005;
 const PLAYER_RADIUS = 0.25;
 
 // ── MAP ────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ class Bot extends Player {
     this.target = nearest;
     if (this.target) this.lastSeen = { x: this.target.x, y: this.target.y };
 
-    const speed = WALK_SPEED * dt;
+    const speed = WALK_SPEED * 0.85 * dt;
 
     if (this.target && this.reactionT <= 0) {
       // Aim
@@ -689,7 +689,7 @@ class Raycaster {
     sprs.sort((a, b) => b.dist - a.dist);
 
     for (const { p, dist, a } of sprs) {
-      const h   = Math.min(H * 2, H / dist * 0.85);
+      const h   = Math.min(H * 0.85, H / dist * 0.72);
       const sx  = W / 2 + Math.tan(a) * (W / 2) / Math.tan(HALF_FOV);
       const x   = sx - h / 2, y = H * 0.42 - h / 2;
 
@@ -704,44 +704,81 @@ class Raycaster {
       ctx.save();
       ctx.globalAlpha = bright;
 
-      // Body silhouette
-      const tc = p.team === 'T' ? '#b33300' : '#003399';
-      const tc2 = p.team === 'T' ? '#cc4422' : '#2244cc';
+      // Ground-anchored sprite — bottom at H*0.5 (horizon)
+      const groundY = H * 0.5;
+      const sprH = h;
+      const sprTop = groundY - sprH;
+      const sprW = sprH * 0.55;
+      const sprX = sx - sprW / 2;
+
+      const bodyC  = p.team === 'T' ? '#cc3300' : '#0044cc';
+      const darkC  = p.team === 'T' ? '#882200' : '#002288';
+      const pantsC = p.team === 'T' ? '#442200' : '#001144';
+
+      // Shadow on floor
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.ellipse(sx, groundY, sprW*0.45, sprH*0.04, 0, 0, Math.PI*2); ctx.fill();
+
+      // Legs
+      const legTop = sprTop + sprH*0.62;
+      ctx.fillStyle = pantsC;
+      ctx.fillRect(sprX + sprW*0.08, legTop, sprW*0.36, sprH*0.38);
+      ctx.fillRect(sprX + sprW*0.56, legTop, sprW*0.36, sprH*0.38);
+      // Boot
+      ctx.fillStyle = '#111';
+      ctx.fillRect(sprX + sprW*0.06, sprTop+sprH*0.9, sprW*0.4, sprH*0.1);
+      ctx.fillRect(sprX + sprW*0.54, sprTop+sprH*0.9, sprW*0.4, sprH*0.1);
 
       // Torso
-      ctx.fillStyle = tc;
-      ctx.fillRect(x + h*.22, y + h*.12, h*.56, h*.60);
+      ctx.fillStyle = bodyC;
+      ctx.fillRect(sprX + sprW*0.1, sprTop + sprH*0.22, sprW*0.8, sprH*0.42);
+
+      // Arms
+      ctx.fillStyle = darkC;
+      ctx.fillRect(sprX,            sprTop+sprH*0.22, sprW*0.12, sprH*0.30);
+      ctx.fillRect(sprX+sprW*0.88,  sprTop+sprH*0.22, sprW*0.12, sprH*0.30);
+
+      // Gun (held at right side)
+      ctx.fillStyle = '#222';
+      ctx.fillRect(sprX - sprW*0.15, sprTop+sprH*0.35, sprW*0.55, sprH*0.07);
+
+      // Neck
+      ctx.fillStyle = '#c09070';
+      ctx.fillRect(sprX+sprW*0.4, sprTop+sprH*0.14, sprW*0.2, sprH*0.10);
+
       // Head
-      ctx.fillStyle = tc2;
-      ctx.beginPath(); ctx.arc(x + h*.5, y + h*.10, h*.14, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c09070';
+      ctx.beginPath(); ctx.ellipse(sx, sprTop+sprH*0.10, sprW*0.24, sprH*0.14, 0, 0, Math.PI*2); ctx.fill();
+
       // Helmet
-      ctx.fillStyle = p.team === 'T' ? '#222' : '#111';
-      ctx.beginPath(); ctx.arc(x + h*.5, y + h*.06, h*.12, Math.PI, Math.PI*2); ctx.fill();
-      // Legs
-      ctx.fillStyle = tc;
-      ctx.fillRect(x + h*.24, y + h*.70, h*.20, h*.28);
-      ctx.fillRect(x + h*.56, y + h*.70, h*.20, h*.28);
-      // Gun in hands
-      ctx.fillStyle = '#333';
-      ctx.fillRect(x + h*.02, y + h*.32, h*.22, h*.07);
-      // Flag indicator
+      ctx.fillStyle = p.team === 'T' ? '#1a1a1a' : '#0d0d22';
+      ctx.beginPath();
+      ctx.arc(sx, sprTop+sprH*0.08, sprW*0.22, Math.PI*1.1, Math.PI*1.9); ctx.fill();
+      ctx.fillRect(sx-sprW*0.22, sprTop+sprH*0.06, sprW*0.44, sprH*0.05);
+
+      // Eyes
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(sx-sprW*0.12, sprTop+sprH*0.07, sprW*0.08, sprH*0.04);
+      ctx.fillRect(sx+sprW*0.04, sprTop+sprH*0.07, sprW*0.08, sprH*0.04);
+
       if (p.hasFlag) {
-        ctx.font = `${Math.max(10, h*.18)}px sans-serif`;
+        ctx.font = `${Math.max(10, sprH*0.22)}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('🚩', sx, y - 5);
+        ctx.fillText('🚩', sx, sprTop - 4);
       }
-      // Nametag + HP bar (close range)
-      if (dist < 7) {
-        ctx.fillStyle   = p.team === 'T' ? '#ff9977' : '#77aaff';
-        ctx.font        = `bold ${Math.max(8, h*.10)}px 'Share Tech Mono'`;
-        ctx.textAlign   = 'center';
-        ctx.shadowBlur  = 3; ctx.shadowColor = '#000';
-        ctx.fillText(p.name.substring(0, 12), sx, y - 4);
-        ctx.shadowBlur = 0;
-        const bw = h * .55, bh = 4, bx = sx - bw/2, by = y - 13;
-        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(bx, by, bw, bh);
+
+      // HP bar always visible
+      const bw = Math.max(30, sprW*1.1), bh = 4;
+      const bx2 = sx - bw/2, by2 = sprTop - 16;
+      if (dist < 10) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx2, by2, bw, bh);
         ctx.fillStyle = p.hp > 50 ? '#00ee44' : p.hp > 25 ? '#ffaa00' : '#ff2200';
-        ctx.fillRect(bx, by, bw * (p.hp / 100), bh);
+        ctx.fillRect(bx2, by2, bw*(p.hp/100), bh);
+        ctx.fillStyle = p.team === 'T' ? '#ff9977' : '#88aaff';
+        ctx.font = `bold ${Math.max(7, sprH*0.09)}px 'Share Tech Mono'`;
+        ctx.textAlign = 'center'; ctx.shadowBlur = 3; ctx.shadowColor = '#000';
+        ctx.fillText(p.name.substring(0,12), sx, by2 - 3);
+        ctx.shadowBlur = 0;
       }
       ctx.restore();
     }
@@ -1455,8 +1492,8 @@ class Game {
     }
 
     if (!this.localPlayer?.alive) {
-      for (const b of this.bots) b.update(dt, this.players);
-      if (this.modeCtrl?.update) this.modeCtrl.update(dt, this.players, this);
+      if (this.phase !== 'buy') for (const b of this.bots) b.update(dt, this.players);
+      if (this.phase === 'live' && this.modeCtrl?.update) this.modeCtrl.update(dt, this.players, this);
       return;
     }
 
@@ -1512,7 +1549,7 @@ class Game {
     if (!inp.keys['Digit7']) inp.keys['_g7'] = false;
 
     // Plant bomb (only in live phase)
-    if (inp.keys['KeyE'] && this.phase === 'live' && this.modeCtrl instanceof BombMode && p.hasBomb) {
+    if (inp.keys['KeyE'] && this.modeCtrl instanceof BombMode && p.hasBomb) {
       if (this.modeCtrl.tryPlant(p)) this.audio.play('bomb');
     }
 
@@ -1529,7 +1566,7 @@ class Game {
     // Shoot (only in live phase)
     p.shootTimer = Math.max(0, p.shootTimer - dt);
     const wi = WEAPONS[p.weapon];
-    const canShoot = this.phase === 'live' && inp.mb && !p.reloading && p.shootTimer <= 0
+    const canShoot = inp.mb && !p.reloading && p.shootTimer <= 0
       && (p.wep?.cur > 0 || p.wep?.cur === Infinity);
     if (canShoot && (wi?.auto || inp.keys['_ms'] !== inp.mb)) {
       inp.keys['_ms'] = inp.mb;
@@ -1542,7 +1579,9 @@ class Game {
     this.ac.tick(p, dt);
     this.wv.update(dt, p.isMoving, false);
 
-    for (const b of this.bots) b.update(dt, this.players);
+    if (this.phase !== 'buy') {
+      for (const b of this.bots) b.update(dt, this.players);
+    }
     if (this.phase === 'live' && this.modeCtrl?.update) this.modeCtrl.update(dt, this.players, this);
 
     // Firebase sync
