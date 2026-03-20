@@ -340,7 +340,13 @@ function startMP(){
 }
 
 function reqLock(){const cv=document.querySelector('#gc canvas');if(cv)cv.requestPointerLock();}
-document.addEventListener('pointerlockchange',()=>{const locked=!!document.pointerLockElement;document.getElementById('lo').style.display=locked?'none':'flex';if(game?.input)game.input.locked=locked;});
+document.addEventListener('pointerlockchange',()=>{
+  const locked=!!document.pointerLockElement;
+  document.getElementById('lo').style.display=locked?'none':'flex';
+  if(game?.input) game.input.locked=locked;
+  // Pause/unpause game when mouse captured/released
+  if(game) game.paused=!locked;
+});
 
 function exitGame(){if(!confirm('Exit to main menu?'))return;if(window._game){window._game.local=null;const cv=document.querySelector('#gc canvas:first-child');if(cv)cv.remove();}document.getElementById('gc').style.display='none';document.getElementById('exit-btn').style.display='none';document.getElementById('mm').style.display='flex';document.getElementById('bm').classList.remove('sh');if(document.pointerLockElement)document.exitPointerLock();window._game=null;game=null;}
 
