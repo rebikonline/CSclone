@@ -326,6 +326,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 </div>
 
 <!-- ══ GAME ══ -->
+
+<div id="exit-btn" style="position:fixed;top:8px;left:8px;z-index:20;display:none">
+  <button onclick="exitGame()" style="background:rgba(0,0,0,0.7);border:1px solid rgba(255,107,0,0.3);color:#ff6b00;font-family:'Bebas Neue';font-size:14px;letter-spacing:3px;padding:6px 14px;cursor:pointer;border-radius:3px">⬅ EXIT</button>
+</div>
 <div id="gc">
   <canvas id="c3d" width="960" height="540"></canvas>
   <canvas id="chd" width="960" height="540"></canvas>
@@ -443,7 +447,7 @@ function showLoad(sub,cb){
   document.getElementById('sp').classList.remove('open');
   const ld=document.getElementById('ld');ld.style.display='flex';
   document.getElementById('lds').textContent=sub;
-  setTimeout(()=>{ld.style.display='none';document.getElementById('gc').style.display='block';cb();},1400);
+  setTimeout(()=>{ld.style.display='none';document.getElementById('gc').style.display='block';document.getElementById('exit-btn').style.display='block';cb();},1400);
 }
 
 function startSP(){
@@ -563,6 +567,18 @@ document.addEventListener('keydown',e=>{
     else if(document.pointerLockElement){document.exitPointerLock();}
   }
 });
+
+function exitGame() {
+  if (!confirm('Exit to main menu?')) return;
+  // Stop game loop by removing reference
+  if (window._game) window._game.localPlayer = null;
+  document.getElementById('gc').style.display = 'none';
+  document.getElementById('exit-btn').style.display = 'none';
+  document.getElementById('mm').style.display = 'flex';
+  document.getElementById('bm').classList.remove('sh');
+  if (document.pointerLockElement) document.exitPointerLock();
+  window._game = null;
+}
 </script>
 </body>
 </html>
