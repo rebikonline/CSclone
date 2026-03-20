@@ -570,6 +570,7 @@ class Game3D {
     this.roundEndMsg=null; this.roundEndT=0;
     this.stepTimer=0; this.bobT=0;
     this.recoilOffset=0;
+    this.paused=false;
 
     this.db=null; this.roomId=null; this.ping=0;
     this.lastTime=0;
@@ -734,6 +735,7 @@ class Game3D {
       if(p.id===this.local.id) continue;
       const mesh=createPlayerModel(p.team);
       mesh.position.set(p.x,0,p.z);
+      mesh.scale.set(1.5,1.5,1.5);
       this.scene3.add(mesh);
       this.playerMeshes[p.id]=mesh;
       // Name label
@@ -763,6 +765,7 @@ class Game3D {
   }
 
   update(dt){
+    if(this.paused) return;
     // Phase
     if(this.phase==='buy'){this.phaseTimer-=dt;if(this.phaseTimer<=0){this.phase='live';document.getElementById('bm')?.classList.remove('sh');}}
     if(this.roundEndT>0){this.roundEndT-=dt;if(this.roundEndT<=0){this.roundEndMsg=null;this.nextRound();}if(this.phase!=='buy')for(const b of this.bots)b.update(dt,this.players,this.gameScene);return;}
@@ -888,7 +891,7 @@ class Game3D {
       p.reloading=false;p.reloadTimer=0;p.shootTimer=0;
       p.hasBomb=false;p.hasFlag=false;
       for(const wd of Object.values(p.weapons))if(wd.cur!==Infinity)wd.cur=wd.ammo;
-      if(this.playerMeshes[p.id]){this.playerMeshes[p.id].visible=true;this.playerMeshes[p.id].position.set(p.x,0,p.z);}
+      if(this.playerMeshes[p.id]){this.playerMeshes[p.id].visible=true;this.playerMeshes[p.id].position.set(p.x,0,p.z);this.playerMeshes[p.id].scale.set(1.5,1.5,1.5);}
     }
     this.hud.dead=false;
     this._setPos(this.local);
@@ -903,6 +906,20 @@ class Game3D {
       if(p.alive){
         mesh.position.set(p.x,0,p.z);
         mesh.rotation.y=p.angle;
+        // Walking animation — bob legs/body
+        if(p.isMoving){
+          p._walkT=(p._walkT||0)+16;
+          const bob=Math.sin(p._walkT*0.012)*0.08;
+          mesh.position.y=Math.abs(Math.sin(p._walkT*0.012))*0.06;
+          // Animate legs (children index 10,11 = thighs)
+          const children=mesh.children;
+          if(children.length>10){
+            children[10].rotation.x=Math.sin(p._walkT*0.012)*0.5;
+            children[11].rotation.x=-Math.sin(p._walkT*0.012)*0.5;
+          }
+        } else {
+          mesh.position.y*=0.85;
+        }
         // Update name label
         const lbl=this.nameMeshes[p.id];
         if(lbl){
@@ -928,20 +945,3 @@ class Game3D {
   render3(dt){
     if(!this.local)return;
     this.renderer.render(this.scene3,this.camera);
-    // HUD
-    const ctx=this.hudCanvas.getContext('2d');
-    ctx.clearRect(0,0,W,H);
-    this.hud.render(this.local,this.round,this.scores,this.ping,this.settings,this.phase,this.phaseTimer);
-    renderScoreboard3D(ctx,this.players,this.showSB);
-    this._modeHUD(ctx);
-    if(this.roundEndMsg){ctx.fillStyle='rgba(0,0,0,.78)';ctx.fillRect(W/2-220,H/2-48,440,88);ctx.strokeStyle='rgba(255,107,0,.4)';ctx.lineWidth=1;ctx.strokeRect(W/2-220,H/2-48,440,88);ctx.fillStyle='#ffcc00';ctx.font="bold 28px 'Bebas Neue'";ctx.textAlign='center';ctx.shadowBlur=12;ctx.shadowColor='#ff8800';ctx.fillText(this.roundEndMsg,W/2,H/2-8);ctx.shadowBlur=0;ctx.fillStyle='#888';ctx.font="13px 'Share Tech Mono'";ctx.fillText(`T ${this.scores.T} : ${this.scores.CT} CT — Next round...`,W/2,H/2+22);}
-    if(this.settings.fps!==false){if(!this._fD)this._fD={fps:60,last:performance.now()};const n=performance.now(),e=n-this._fD.last;this._fD.last=n;this._fD.fps=Math.round(.88*this._fD.fps+.12*(1000/Math.max(1,e)));const f=this._fD.fps;ctx.fillStyle=f>50?'#00ff88':f>30?'#ffaa00':'#ff2200';ctx.font="10px 'Share Tech Mono'";ctx.textAlign='right';ctx.fillText(`${f}fps`,W-6,26);}
-  }
-
-  _modeHUD(ctx){
-    ctx.textAlign='center';
-    if(this.mode instanceof BombMode){const b=this.mode.bomb;if(b?.planted){const s=Math.ceil(b.timer/1000);ctx.fillStyle=s<=10?'#ff2200':'#ffaa00';ctx.font="bold 28px 'Share Tech Mono'";ctx.fillText(`💣 ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`,W/2,H-82);if(b.defuse>0){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(W/2-95,H-72,190,12);ctx.fillStyle='#00aaff';ctx.fillRect(W/2-95,H-72,190*b.defuse,12);}}if(this.local?.hasBomb){ctx.fillStyle='#ffcc00';ctx.font="12px 'Share Tech Mono'";ctx.fillText('💣 BOMB — press E at SITE A or SITE B',W/2,H-18);}}
-  }
-}
-
-window.Game3D=Game3D;
