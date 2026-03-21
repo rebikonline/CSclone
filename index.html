@@ -469,10 +469,11 @@ function genEntities() {
       hasH:s.hasH,hasV:s.hasV});
   }
   var NMS=['Alex','Sam','Maria','Jake','Elena','Tom','Anna','Dima'];
-  [[40,'survivor'],[25,'soldier'],[15,'looter']].forEach(function(a){
+  [[18,'survivor'],[12,'soldier'],[10,'looter']].forEach(function(a){
     for(var j=0;j<a[0];j++){
       var x=(15+Math.random()*(MW-30))*TW, y=(15+Math.random()*(MH-30))*TW;
-      npcs.push({x,y,hp:100,mhp:100,role:a[1],alive:true,spd:a[1]==='looter'?118:a[1]==='soldier'?105:88,
+      var npcHp={survivor:80,soldier:180,looter:70}[a[1]]||100;
+    npcs.push({x,y,hp:npcHp,mhp:npcHp,role:a[1],alive:true,spd:a[1]==='looter'?118:a[1]==='soldier'?105:88,
         face:0,atkT:0,hostile:a[1]==='looter',name:a[1]==='looter'?'Looter':a[1]==='soldier'?'Soldier':NMS[Math.random()*NMS.length|0],
         wA:Math.random()*6.28,atkCool:0});
     }
@@ -712,9 +713,9 @@ function render(){
 function drawBldLabels(){
   var pTX = P.x/TW|0, pTY = P.y/TW|0;
   buildings.forEach(function(b){
-    // Check if player is inside this building (on floor tiles)
-    var insideX = pTX > b.x && pTX < b.x+b.w-1;
-    var insideY = pTY > b.y && pTY < b.y+b.h-1;
+    // Player "inside" = within building bounds including walls (so door approach hides roof)
+    var insideX = pTX >= b.x && pTX <= b.x+b.w-1;
+    var insideY = pTY >= b.y && pTY <= b.y+b.h-1;
     var playerInside = insideX && insideY;
     if(!playerInside){
       // Draw roof overlay
@@ -932,6 +933,8 @@ function drawCharacter(px,py,ang,bc,hc,lc,wi,hasHelm,hasVest,sz,moving){
 function drawZombies(){
   zombies.forEach(function(z){
     if(!inV(z.x,z.y,80))return;
+    // Hide zombies inside buildings when player is outside
+    if(gT(z.x/TW|0,z.y/TW|0)===T.FL&&!playerInsideBuilding())return;
     var s=w2s(z.x,z.y);
     if(!z.alive){
       X.save();X.globalAlpha=0.5;X.fillStyle='#380000';
@@ -954,9 +957,20 @@ function drawZombies(){
   });
 }
 
+function npcInsideBuilding(n){
+  var ntx=n.x/TW|0,nty=n.y/TW|0;
+  return gT(ntx,nty)===T.FL;
+}
+function playerInsideBuilding(){
+  var tx=P.x/TW|0,ty=P.y/TW|0,t=gT(tx,ty);
+  return t===T.FL||t===T.WL||t===T.DC||t===T.DO;
+}
+
 function drawNPCs(){
   npcs.forEach(function(n){
     if(!n.alive||!inV(n.x,n.y,80))return;
+    // Hide NPC under roof if player is outside building
+    if(npcInsideBuilding(n)&&!playerInsideBuilding())return;
     var s=w2s(n.x,n.y);
     var bc=n.hostile?'#5a2818':n.role==='soldier'?'#1a3818':'#183050';
     var hc=n.hostile?'#c49a68':'#c4a068';
@@ -973,6 +987,7 @@ function drawNPCs(){
 
 function drawPlayer(){
   if(!P.alive)return;
+  if(P.inCar)return; // hide player model while driving
   var s=w2s(P.x,P.y);
   var hi=P.hb[P.slot],it=hi?IT[hi.id]:null,wi=it&&it.t==='wep'?it.i:null;
   var _pmv=!!(K['w']||K['s']||K['a']||K['d']||K['arrowup']||K['arrowdown']||K['arrowleft']||K['arrowright']);
@@ -1130,8 +1145,9 @@ function updatePlayer(dt){
   cam.x+=(P.x-cam.x)*Math.min(1,7*dt);cam.y+=(P.y-cam.y)*Math.min(1,7*dt);
   if(P.atkT>0)P.atkT=Math.max(0,P.atkT-dt);
   // Survival (~30min hunger, ~20min thirst)
-  P.hunger=Math.max(0,P.hunger-(0.056+(mv?0.03:0))*dt*60);
-  P.thirst=Math.max(0,P.thirst-(0.082+(mv?0.04:0))*dt*60);
+  // Hunger empties in ~60 real min idle, thirst in ~40 min idle
+  P.hunger=Math.max(0,P.hunger-(0.028+(mv?0.012:0))*dt*60);
+  P.thirst=Math.max(0,P.thirst-(0.042+(mv?0.018:0))*dt*60);
   if(P.hunger<5||P.thirst<5)P.hp=Math.max(0,P.hp-1.2*dt);
   if(P.bleeding){P.hp=Math.max(0,P.hp-2.5*dt);P.bleedT-=dt;if(P.bleedT<=0)P.bleeding=false;}
   if(P.infected){P.infT-=dt;if(P.infT<=0){P.hp=Math.max(0,P.hp-3.5*dt);if(P.hp<=0)die('infection');}}
@@ -1157,26 +1173,32 @@ function updateZombies(dt){
       var mathAng=Math.atan2(dpy,dpx);
       var nx=z.x+Math.cos(mathAng)*z.spd*dt,ny=z.y+Math.sin(mathAng)*z.spd*dt;
       if(canWalk(nx,z.y))z.x=nx;if(canWalk(z.x,ny))z.y=ny;
-      if(d<z.rng+16&&P.alive){z.state='a';z.atkT=0.4+Math.random()*0.3;}
+      if(d<z.rng+10&&P.alive){z.state='a';z.atkT=0.3+Math.random()*0.2;}
     } else if(z.state==='a'){
-      var ang=Math.atan2(dpx,-dpy);z.face=ang; // correct top-down facing
-      var nx=z.x+Math.cos(ang)*z.spd*dt*0.6,ny=z.y+Math.sin(ang)*z.spd*dt*0.6;
-      if(canWalk(nx,z.y))z.x=nx;if(canWalk(z.x,ny))z.y=ny;
+      // Always recalc direction toward player
+      var adx=P.x-z.x, ady=P.y-z.y;
+      var adist=Math.sqrt(adx*adx+ady*ady)||1;
+      z.face=Math.atan2(adx,-ady);
+      // Keep moving toward player during attack
+      if(adist>20){
+        var spd2=z.spd*0.65*dt;
+        var nmx=z.x+adx/adist*spd2, nmy=z.y+ady/adist*spd2;
+        if(canWalk(nmx,z.y))z.x=nmx;
+        if(canWalk(z.x,nmy))z.y=nmy;
+      }
       z.atkT-=dt;
       if(z.atkT<=0){
-        // Re-check distance when attack fires
-        var dAtk=Math.hypot(P.x-z.x,P.y-z.y);
+        var dAtk=Math.sqrt(adx*adx+ady*ady);
         if(dAtk<z.rng+20&&P.alive&&!P.inCar){
-          dmgPlayer(z.dmg,z);shk(3);
-          // Visual feedback: briefly tint zombie red
-          z.hitFlash=5;
+          dmgPlayer(z.dmg,z);
+          shk(3);
         }
-        z.atkT=0.7+Math.random()*0.3;
-        if(dAtk>z.rng+30)z.state='c';
+        z.atkT=0.55+Math.random()*0.2;
+        if(dAtk>z.rng+32)z.state='c';
       }
     }
-    // Attack friendly NPCs
-    npcs.forEach(function(n){if(!n.alive||n.hostile||z.atkT>0)return;var dn=Math.hypot(n.x-z.x,n.y-z.y);if(dn<z.rng+8){n.hp-=z.dmg*0.45;if(n.hp<=0)n.alive=false;}});
+    // Zombies attack ALL NPCs (hostile and friendly)
+    npcs.forEach(function(n){if(!n.alive)return;var dn=Math.hypot(n.x-z.x,n.y-z.y);if(dn<z.rng+14){n.hp-=z.dmg*0.55;if(n.hp<=0)n.alive=false;}});
   });
 }
 
@@ -1205,6 +1227,17 @@ function updateNPCs(dt){
       }
     }
     n.x=Math.max(TW,Math.min((MW-2)*TW,n.x));n.y=Math.max(TW,Math.min((MH-2)*TW,n.y));
+    // Unstick NPC from walls
+    var ntx2=n.x/TW|0,nty2=n.y/TW|0;
+    var nt=gT(ntx2,nty2);
+    if(nt===T.WL||nt===T.TR){
+      // Try 4 directions to find walkable tile
+      var dirs2=[[TW,0],[-TW,0],[0,TW],[0,-TW]];
+      for(var di=0;di<dirs2.length;di++){
+        var nx2=n.x+dirs2[di][0],ny2=n.y+dirs2[di][1];
+        if(canWalk(nx2,ny2)){n.x=nx2;n.y=ny2;break;}
+      }
+    }
   });
 }
 
