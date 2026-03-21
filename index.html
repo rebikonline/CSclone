@@ -379,11 +379,21 @@ function drawParts(){
 function drawBullets(){var b,s;for(var i=0;i<bullets.length;i++){b=bullets[i];s=w2s(b.x,b.y);X.save();X.fillStyle='#ffee55';X.shadowColor='#ffcc00';X.shadowBlur=4;X.beginPath();X.arc(s.x,s.y,2.5*cam.zoom,0,Math.PI*2);X.fill();X.restore();}}
 function drawNight(){
   var hour=(gameMin/60)%24,dark=0;
-  if(hour>=21||hour<5)dark=0.82;else if(hour>=19)dark=(hour-19)/2*0.82;else if(hour>=5&&hour<7)dark=(7-hour)/2*0.3;
-  if(dark<0.02)return;
-  var s=w2s(P.x,P.y),hasTorch=P.hotbar.some(function(h){return h&&h.id==='torch';}),lr=(hasTorch?230:145)*cam.zoom,g;
-  X.save();X.fillStyle='rgba(0,5,20,'+dark+')';X.fillRect(0,0,CV.width,CV.height);X.globalCompositeOperation='destination-out';g=X.createRadialGradient(s.x,s.y,0,s.x,s.y,lr);g.addColorStop(0,'rgba(255,255,255,0.65)');g.addColorStop(0.5,'rgba(255,255,255,0.4)');g.addColorStop(1,'rgba(0,0,0,0)');X.fillStyle=g;X.beginPath();X.arc(s.x,s.y,lr,0,Math.PI*2);X.fill();X.restore();
-  X.save();X.fillStyle='rgba(0,5,20,'+(dark*0.3)+')';X.fillRect(0,0,CV.width,CV.height);X.restore();
+  if(hour>=22||hour<4)dark=0.82;
+  else if(hour>=20)dark=(hour-20)/2*0.82;
+  else if(hour>=4&&hour<6)dark=(6-hour)/2*0.25;
+  if(dark<0.05)return;
+  var s=w2s(P.x,P.y),hasTorch=false,lr,g,oc,ox2;
+  for(var hi=0;hi<P.hotbar.length;hi++){if(P.hotbar[hi]&&P.hotbar[hi].id==='torch'){hasTorch=true;break;}}
+  lr=(hasTorch?280:160)*cam.zoom;
+  oc=document.createElement('canvas');oc.width=CV.width;oc.height=CV.height;
+  ox2=oc.getContext('2d');
+  ox2.fillStyle='rgba(0,5,20,'+dark+')';ox2.fillRect(0,0,oc.width,oc.height);
+  ox2.globalCompositeOperation='destination-out';
+  g=ox2.createRadialGradient(s.x,s.y,0,s.x,s.y,lr);
+  g.addColorStop(0,'rgba(0,0,0,0.95)');g.addColorStop(0.55,'rgba(0,0,0,0.55)');g.addColorStop(1,'rgba(0,0,0,0)');
+  ox2.fillStyle=g;ox2.fillRect(0,0,oc.width,oc.height);
+  X.drawImage(oc,0,0);
 }
 function drawAim(){if(!P.alive)return;var item=P.hotbar[P.slot],it=item?IT[item.id]:null;if(!it||it.st!=='ranged')return;var s=w2s(P.x,P.y);X.save();X.strokeStyle='rgba(220,60,60,0.2)';X.lineWidth=1;X.setLineDash([5,10]);X.beginPath();X.moveTo(s.x,s.y);X.lineTo(M.x,M.y);X.stroke();X.fillStyle='rgba(220,60,60,0.45)';X.beginPath();X.arc(M.x,M.y,3,0,Math.PI*2);X.fill();X.restore();}
 function drawBldLabels(){if(cam.zoom<0.5)return;var b,cx,cy,s;for(var i=0;i<buildings.length;i++){b=buildings[i];cx=(b.x+b.w/2)*TW;cy=b.y*TW-8;if(!inV(cx,cy,80))continue;s=w2s(cx,cy);X.font=(7*cam.zoom)+'px Share Tech Mono';X.fillStyle='rgba(100,85,50,0.65)';X.textAlign='center';X.fillText(b.label,s.x,s.y);}}
@@ -476,8 +486,28 @@ CV.addEventListener('contextmenu',function(e){e.preventDefault();});
 CV.addEventListener('wheel',function(e){cam.zoom=Math.max(0.3,Math.min(2.5,cam.zoom-e.deltaY*0.001));});
 document.addEventListener('click',function(e){if(!e.target.closest('#ctx'))closeCtx();});
 var atkHold;CV.addEventListener('mousedown',function(e){if(e.button===0)atkHold=setInterval(function(){if(running&&P.alive&&M.ld&&!P.invOpen&&!P.craftOpen)attack();},220);});CV.addEventListener('mouseup',function(){clearInterval(atkHold);});
-function loop(ts){if(!running)return;var dt=Math.min((ts-lastTS)/1000,0.1);lastTS=ts;fr++;if(CV.width!==window.innerWidth||CV.height!==window.innerHeight){CV.width=window.innerWidth;CV.height=window.innerHeight;}X.fillStyle='#111';X.fillRect(0,0,CV.width,CV.height);drawTiles();drawBldLabels();drawLoot();drawGroundItems();drawVehicles();drawZombies();drawNPCs();drawPlayer();drawParts();drawBullets();drawAim();drawNight();drawWFX();updPlayer(dt);updZombies(dt);updNPCs(dt);updBullets(dt);updTime(dt);updWeather(dt);drawMinimap();requestAnimationFrame(loop);}
-function startGame(){document.getElementById('start').style.display='none';CV.width=window.innerWidth;CV.height=window.innerHeight;genWorld();P.x=(4*BLK+BLK/2)*TW;P.y=(4*BLK+BLK/2)*TW;cam.x=P.x;cam.y=P.y;running=true;updHotbar();updInvUI();addMsg('Welcome to DEAD CITY. Survive.','warn');addMsg('E/F=loot  I=inventory  C=craft  R=reload','info');lastTS=performance.now();requestAnimationFrame(loop);}
+function loop(ts){if(!running)return;var dt=Math.min((ts-lastTS)/1000,0.1);lastTS=ts;fr++;if(CV.width<100||CV.height<100||CV.width!==window.innerWidth||CV.height!==window.innerHeight){CV.width=window.innerWidth||800;CV.height=window.innerHeight||600;}X.fillStyle='#1a2a10';X.fillRect(0,0,CV.width,CV.height);drawTiles();drawBldLabels();drawLoot();drawGroundItems();drawVehicles();drawZombies();drawNPCs();drawPlayer();drawParts();drawBullets();drawAim();drawNight();drawWFX();updPlayer(dt);updZombies(dt);updNPCs(dt);updBullets(dt);updTime(dt);updWeather(dt);drawMinimap();requestAnimationFrame(loop);}
+function startGame(){
+  document.getElementById('start').style.display='none';
+  CV.width=window.innerWidth;CV.height=window.innerHeight;
+  genWorld();
+  // Spawn in middle of map at a road intersection
+  P.x=Math.floor(MW/2)*TW;P.y=Math.floor(MH/2)*TW;
+  // Find a walkable spot near center
+  for(var tries=0;tries<200;tries++){
+    var tx2=(MW/2-20+Math.random()*40)|0,ty2=(MH/2-20+Math.random()*40)|0;
+    var tile=gT(tx2,ty2);
+    if(tile===T.ROAD||tile===T.SIDE||tile===T.GRASS||tile===T.GRASS2){P.x=tx2*TW+TW/2;P.y=ty2*TW+TW/2;break;}
+  }
+  cam.x=P.x;cam.y=P.y;
+  cam.zoom=1.0;
+  running=true;
+  updHotbar();updInvUI();
+  addMsg('Welcome to DEAD CITY. Survive.','warn');
+  addMsg('E/F=loot  I=inventory  C=craft  R=reload','info');
+  lastTS=performance.now();
+  requestAnimationFrame(loop);
+}
 window.addEventListener('resize',function(){CV.width=window.innerWidth;CV.height=window.innerHeight;});
 </script>
 </body>
