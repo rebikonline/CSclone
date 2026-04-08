@@ -1,40 +1,757 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>DEAD CITY</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiraiVPN — Быстро. Надёжно. Навсегда.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;overflow:hidden;font-family:'Courier New',monospace}
-canvas{display:block}
-.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-.screen.show{display:flex}
-/* Main menu */
-#smain{background:radial-gradient(ellipse at 50% 40%,#0d1f0d 0%,#030803 100%)}
-#smain h1{font-size:clamp(44px,7vw,80px);color:#c8a86a;letter-spacing:12px;text-shadow:0 0 40px rgba(200,168,106,.3);margin-bottom:4px}
-#smain .sub{font-size:10px;color:#2a2a2a;letter-spacing:6px;margin-bottom:44px}
-.mbtn{padding:12px 44px;background:transparent;border:1px solid #2a2a2a;color:#555;font-family:'Courier New',monospace;font-size:10px;letter-spacing:4px;cursor:pointer;margin:4px;min-width:250px;transition:all .15s;text-transform:uppercase}
-.mbtn:hover{border-color:#c8a86a;color:#c8a86a}
-.mbtn.pri{border-color:#c8a86a;color:#c8a86a}
-.mbtn.pri:hover{background:#c8a86a;color:#000}
-/* Loading */
-#sload{background:#000;z-index:200}
-#sload .ltxt{color:#c8a86a;font-size:12px;letter-spacing:4px;margin-bottom:16px}
-#loadbar{width:280px;height:3px;background:#111;border:1px solid #222}
-#loadfill{height:100%;background:#c8a86a;width:0%;transition:width .1s}
-#loadsub{font-size:8px;color:#333;margin-top:8px;letter-spacing:2px}
-/* Settings */
-#sset{background:rgba(0,0,0,.94);z-index:150}
-.panel{background:#060606;border:1px solid #1a1a1a;padding:28px;min-width:380px}
-.panel h2{font-size:11px;letter-spacing:4px;color:#c8a86a;margin-bottom:20px}
-.srow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:9px;letter-spacing:1px}
-.srow label{color:#555}
-.tog{width:40px;height:20px;background:#1a1a1a;border:1px solid #222;border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
-.tog.on{background:#1a4a1a;border-color:#2a6a2a}
-.tog::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;background:#333;border-radius:50%;transition:left .2s}
-.tog.on::after{left:22px;background:#4aaa3a}
-.srange{width:120px;accent-color:#c8a86a}
-/* Death */
+  :root {
+    --bg:       #050508;
+    --surface:  #0d0d14;
+    --border:   rgba(255,255,255,0.06);
+    --accent:   #00e5ff;
+    --accent2:  #7b61ff;
+    --text:     #e8e8f0;
+    --muted:    #6b6b80;
+    --glow:     0 0 40px rgba(0,229,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* ── Кастомный курсор ── */
+  #cursor {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    position: fixed; top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.08s, width 0.2s, height 0.2s, background 0.2s;
+    mix-blend-mode: screen;
+  }
+  #cursor-ring {
+    width: 36px; height: 36px;
+    border: 1px solid rgba(0,229,255,0.4);
+    border-radius: 50%;
+    position: fixed; top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: transform 0.18s ease, width 0.3s, height 0.3s, opacity 0.3s;
+  }
+  body:hover #cursor-ring { opacity: 1; }
+
+  /* ── Шум / зерно ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  /* ── Сетка фона ── */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 40%, transparent 100%);
+  }
+
+  /* ── Навбар ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,5,8,0.7);
+    backdrop-filter: blur(20px);
+  }
+  .logo {
+    font-size: 1.1rem; font-weight: 800; letter-spacing: 0.08em;
+    color: #fff;
+  }
+  .logo span { color: var(--accent); }
+  .nav-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--muted);
+    text-decoration: none; letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--accent); }
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 120px 24px 80px;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
+  .hero-glow2 {
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(123,97,255,0.07) 0%, transparent 70%);
+    bottom: 0; right: 10%;
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.12em;
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.25);
+    border-radius: 100px;
+    padding: 6px 16px;
+    margin-bottom: 32px;
+    background: rgba(0,229,255,0.04);
+    animation: fadeUp 0.6s ease both;
+  }
+  .badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  h1 {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  h1 .line2 {
+    display: block;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    max-width: 520px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem; font-weight: 300;
+    color: var(--muted); line-height: 1.7;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .cta-group {
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.95rem;
+    padding: 16px 36px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 30px rgba(0,229,255,0.25);
+    letter-spacing: 0.02em;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 50px rgba(0,229,255,0.4);
+  }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 16px 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+
+  /* ── Статы ── */
+  .stats {
+    position: relative; z-index: 1;
+    display: flex; justify-content: center; gap: 0;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .stat {
+    flex: 1; min-width: 160px;
+    padding: 40px 32px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-size: 2.8rem; font-weight: 800;
+    color: #fff; line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat-num span { color: var(--accent); }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  /* ── Секции ── */
+  section {
+    position: relative; z-index: 1;
+    padding: 100px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--accent);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800; line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .section-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem; color: var(--muted);
+    line-height: 1.7; max-width: 480px;
+    margin-bottom: 64px;
+  }
+
+  /* ── WHY карточки ── */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .why-card {
+    background: var(--surface);
+    padding: 40px 36px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+  .why-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.4s ease;
+  }
+  .why-card:hover::before { transform: scaleX(1); }
+  .why-card:hover { background: rgba(13,13,20,0.8); }
+
+  .why-icon {
+    font-size: 1.8rem; margin-bottom: 20px;
+    display: block;
+  }
+  .why-num {
+    position: absolute; top: 24px; right: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; color: var(--border);
+    letter-spacing: 0.1em;
+  }
+  .why-card h3 {
+    font-size: 1.15rem; font-weight: 700;
+    margin-bottom: 12px; color: #fff;
+  }
+  .why-card p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* ── Протоколы ── */
+  .proto-row {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    margin-top: 48px;
+  }
+  .proto-card {
+    flex: 1; min-width: 220px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 32px 28px;
+    position: relative;
+  }
+  .proto-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.12em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .proto-name {
+    font-size: 1.6rem; font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .proto-desc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--muted); line-height: 1.6;
+  }
+  .proto-badge {
+    position: absolute; top: 20px; right: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem; padding: 4px 10px;
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--accent); border-radius: 100px;
+  }
+
+  /* ── Цена ── */
+  .price-block {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .price-card {
+    flex: 1; min-width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 48px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .price-card.featured {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+  .price-card.featured::after {
+    content: 'ЛУЧШИЙ ВЫБОР';
+    position: absolute; top: 20px; right: -30px;
+    background: var(--accent);
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 4px 40px;
+    transform: rotate(45deg);
+  }
+  .price-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .price-num {
+    font-size: 4rem; font-weight: 800; line-height: 1;
+    color: #fff; margin-bottom: 4px;
+  }
+  .price-num sub {
+    font-size: 1.5rem; font-weight: 400;
+    vertical-align: baseline;
+    color: var(--accent);
+  }
+  .price-period {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--muted);
+    margin-bottom: 36px;
+  }
+  .price-features {
+    list-style: none;
+    margin-bottom: 40px;
+  }
+  .price-features li {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; color: var(--muted);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .price-features li::before {
+    content: '→';
+    color: var(--accent); flex-shrink: 0;
+  }
+  .price-features li.ok { color: var(--text); }
+
+  /* ── CTA финальный ── */
+  .final-cta {
+    text-align: center;
+    padding: 120px 24px;
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+  }
+  .final-cta h2 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 800; line-height: 0.95;
+    margin-bottom: 32px;
+  }
+  .final-cta h2 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Footer ── */
+  footer {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 32px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+  }
+
+  /* ── Анимации ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .reveal {
+    opacity: 0; transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .reveal.visible {
+    opacity: 1; transform: translateY(0);
+  }
+
+  /* ── Divider ── */
+  .divider {
+    width: 100%; height: 1px;
+    background: var(--border);
+    position: relative; z-index: 1;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { gap: 20px; }
+    section { padding: 64px 20px; }
+    .stat { padding: 28px 20px; }
+    footer { padding: 24px 20px; flex-direction: column; text-align: center; }
+    body { cursor: auto; }
+    #cursor, #cursor-ring { display: none; }
+  }
+
+  /* ── Scan line эффект ── */
+  .scanline {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+  }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">MIRAI<span>VPN</span></div>
+  <div class="nav-links">
+    <a class="nav-link" href="#why">Почему мы</a>
+    <a class="nav-link" href="#proto">Протоколы</a>
+    <a class="nav-link" href="#price">Цена</a>
+    <a class="btn-primary" href="https://t.me/miraifree_vpn_bot" style="padding:10px 22px;font-size:0.82rem;">
+      Начать →
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Серверы онлайн · Латвия
+  </div>
+
+  <h1>
+    Интернет без<br>
+    <span class="line2">границ и слежки</span>
+  </h1>
+
+  <p class="hero-sub">
+    Современные протоколы. Один платёж навсегда.<br>
+    Никаких подписок, логов и компромиссов.
+  </p>
+
+  <div class="cta-group">
+    <a class="btn-primary" href="https://t.me/miraifree_vpn_bot">
+      ⚡ Получить VPN за 50 ₽
+    </a>
+    <a class="btn-ghost" href="#why">
+      Узнать подробнее ↓
+    </a>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats reveal">
+  <div class="stat">
+    <div class="stat-num">50<span>₽</span></div>
+    <div class="stat-label">раз и навсегда</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">2</div>
+    <div class="stat-label">протокола включено</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">∞</div>
+    <div class="stat-label">трафик без лимита</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">0</div>
+    <div class="stat-label">логов активности</div>
+  </div>
+</div>
+
+<!-- WHY -->
+<section id="why">
+  <div class="section-label reveal">// почему именно мы</div>
+  <h2 class="section-title reveal">Сделано для людей,<br>которые ценят приватность</h2>
+  <p class="section-sub reveal">Никакой корпоративной воды. Только факты о том, почему MiraiVPN — правильный выбор.</p>
+
+  <div class="why-grid reveal">
+    <div class="why-card">
+      <span class="why-num">01</span>
+      <span class="why-icon">♾️</span>
+      <h3>Платишь один раз</h3>
+      <p>Никаких ежемесячных списаний и сюрпризов. 50 рублей — и VPN работает у тебя навсегда без ограничений.</p>
+    </div>
+    <div class="why-card">
+      <span class="why-num">02</span>
+      <span class="why-icon">🚀</span>
+      <h3>Топовые протоколы</h3>
+      <p>VLESS + Trojan с TLS — современные протоколы, которые не блокируются DPI и выглядят как обычный HTTPS трафик.</p>
+    </div>
+    <div class="why-card">
+      <span class="why-num">03</span>
+      <span class="why-icon">🔇</span>
+      <h3>Нулевые логи</h3>
+      <p>Мы не храним историю соединений, DNS-запросы и данные о трафике. Твоя активность — только твоя.</p>
+    </div>
+    <div class="why-card">
+      <span class="why-num">04</span>
+      <span class="why-icon">⚡</span>
+      <h3>Реальная скорость</h3>
+      <p>Выделенный сервер в Латвии без оверселлинга. Пинг до Европы от 30мс. Стриминг, игры, торренты — всё летит.</p>
+    </div>
+    <div class="why-card">
+      <span class="why-num">05</span>
+      <span class="why-icon">📱</span>
+      <h3>Любые устройства</h3>
+      <p>Android, iOS, Windows, macOS, Linux — работает везде через стандартные приложения v2rayNG, Hiddify, NekoBox.</p>
+    </div>
+    <div class="why-card">
+      <span class="why-num">06</span>
+      <span class="why-icon">🤝</span>
+      <h3>Честная поддержка</h3>
+      <p>Реальный человек в Telegram, а не бот-автоответчик. Подключим и настроим — даже если ты делаешь это впервые.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROTOCOLS -->
+<section id="proto">
+  <div class="section-label reveal">// технологии</div>
+  <h2 class="section-title reveal">Два протокола.<br>Один ключ.</h2>
+  <p class="section-sub reveal">Получаешь сразу оба. Используй тот, что лучше работает в твоей сети.</p>
+
+  <div class="proto-row reveal">
+    <div class="proto-card">
+      <div class="proto-badge">Рекомендуем</div>
+      <div class="proto-tag">Протокол 01</div>
+      <div class="proto-name">VLESS</div>
+      <div class="proto-desc">
+        Следующее поколение после VMess. Лёгкий, быстрый, с поддержкой XTLS-Vision. Маскируется под обычный TLS — практически не определяется блокировщиками.
+      </div>
+    </div>
+    <div class="proto-card">
+      <div class="proto-tag">Протокол 02</div>
+      <div class="proto-name">Trojan</div>
+      <div class="proto-desc">
+        Имитирует HTTPS соединение на уровне протокола. Идеален там, где активно фильтруется трафик. Используй как запасной или основной.
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRICE -->
+<section id="price">
+  <div class="section-label reveal">// тарифы</div>
+  <h2 class="section-title reveal">Просто и честно</h2>
+  <p class="section-sub reveal">Один тариф. Один платёж. Никаких скрытых условий.</p>
+
+  <div class="price-block reveal">
+    <div class="price-card featured">
+      <div class="price-label">Навсегда</div>
+      <div class="price-num"><sub>₽</sub>50</div>
+      <div class="price-period">единоразово · никаких продлений</div>
+      <ul class="price-features">
+        <li class="ok">VLESS + Trojan протоколы</li>
+        <li class="ok">Безлимитный трафик</li>
+        <li class="ok">Сервер в Латвии (EU)</li>
+        <li class="ok">До 3 устройств</li>
+        <li class="ok">Нулевые логи</li>
+        <li class="ok">Поддержка в Telegram</li>
+      </ul>
+      <a class="btn-primary" href="https://t.me/miraifree_vpn_bot" style="width:100%;justify-content:center;">
+        Получить в Telegram →
+      </a>
+    </div>
+
+    <div class="price-card" style="background:transparent;border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;min-height:400px;">
+      <div style="font-size:2.5rem">🤔</div>
+      <div style="font-weight:700;font-size:1.1rem;color:#fff;">Есть вопросы?</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--muted);line-height:1.7;max-width:240px;">
+        Напиши нам в Telegram — поможем с выбором и настройкой
+      </div>
+      <a class="btn-ghost" href="https://t.me/miraifree_vpn_bot">
+        Написать →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<div class="final-cta">
+  <h2 class="reveal">
+    Готов выйти<br>
+    <em>за пределы?</em>
+  </h2>
+  <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--muted);margin-bottom:40px;">
+    50 рублей. Один раз. Навсегда.
+  </p>
+  <a class="btn-primary reveal" href="https://t.me/miraifree_vpn_bot" style="font-size:1.05rem;padding:18px 48px;">
+    ⚡ Открыть в Telegram
+  </a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2025 MiraiVPN · Латвия</p>
+  <p>Сделано с заботой о приватности</p>
+  <a class="nav-link" href="https://t.me/miraifree_vpn_bot">Telegram →</a>
+</footer>
+
+<script>
+  // Кастомный курсор
+  const cursor     = document.getElementById('cursor');
+  const cursorRing = document.getElementById('cursor-ring');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cursor.style.left = mx + 'px';
+    cursor.style.top  = my + 'px';
+  });
+
+  function animRing() {
+    rx += (mx - rx) * 0.12;
+    ry += (my - ry) * 0.12;
+    cursorRing.style.left = rx + 'px';
+    cursorRing.style.top  = ry + 'px';
+    requestAnimationFrame(animRing);
+  }
+  animRing();
+
+  document.querySelectorAll('a, button').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      cursor.style.width  = '18px';
+      cursor.style.height = '18px';
+      cursorRing.style.width  = '52px';
+      cursorRing.style.height = '52px';
+    });
+    el.addEventListener('mouseleave', () => {
+      cursor.style.width  = '10px';
+      cursor.style.height = '10px';
+      cursorRing.style.width  = '36px';
+      cursorRing.style.height = '36px';
+    });
+  });
+
+  // Reveal on scroll
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(r => observer.observe(r));
+
+  // Счётчик анимации для статов
+  function animateCounter(el, target, suffix = '') {
+    let start = 0;
+    const step = target / 40;
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { el.textContent = target + suffix; clearInterval(timer); return; }
+      el.textContent = Math.floor(start) + suffix;
+    }, 30);
+  }
+
+  const statsObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        statsObserver.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.5 });
+</script>
+</body>
+</html>/* Death */
 #sdeath{background:rgba(0,0,0,.9);z-index:110}
 #sdeath h1{font-size:60px;color:#7a1a1a;letter-spacing:8px;margin-bottom:8px}
 #sdeath .ds{font-size:10px;color:#2a2a2a;letter-spacing:2px;margin-bottom:22px;text-align:center;line-height:1.9}
